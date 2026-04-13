@@ -1,0 +1,44 @@
+name: Bump pop-pay Formula
+
+on:
+  repository_dispatch:
+    types: [pop-pay-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to bump to (e.g. 0.5.6)'
+        required: true
+      tarball_sha256:
+        description: 'SHA256 of the npm tarball'
+        required: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Formula
+        env:
+          VERSION: ${{ github.event.client_payload.version || inputs.version }}
+          SHA256: ${{ github.event.client_payload.tarball_sha256 || inputs.tarball_sha256 }}
+        run: |
+          URL="https://registry.npmjs.org/pop-pay/-/pop-pay-${VERSION}.tgz"
+          sed -i "s|^  url .*|  url \"${URL}\"|" Formula/pop-pay.rb
+          sed -i "s|^  sha256 .*|  sha256 \"${SHA256}\"|" Formula/pop-pay.rb
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ github.event.client_payload.version || inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/pop-pay.rb
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "bump pop-pay to ${VERSION}"
+          git push origin main
